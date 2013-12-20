@@ -1,0 +1,61 @@
+#!/bin/sh
+# This script will enable you to get up and running
+# with a sinle data centre, multinode cassandra deployment.
+# The script is very simple to follow and is largely taken
+# from Ed Capriolo's book with some added extras to accommodate
+# Cassandra 2.X setUp's.  
+
+# First get you cassandra download from here
+# http://cassandra.apache.org/download and edit the 
+# ${CASSANDRA_TAR} variable below to reflect the version.
+CASSANDRA_TAR=apache-cassandra-X.X.X-bin.tar.gz
+
+TAR_EXTRACTS_TO=apache-cassandra
+HIGH_PERF_CAS=${HOME}/hpcas
+mkdir ${HIGH_PERF_CAS}
+mkdir ${HIGH_PERF_CAS}/commit/
+mkdir ${HIGH_PERF_CAS}/data/
+mkdir ${HIGH_PERF_CAS}/saved_caches/
+
+# Copy the tar to ${HIGH_PERF_CAS} directory and then 
+# use pushd to change to that directory.
+# The body of this script runs five times:
+cp ${CASSANDRA_TAR} ${HIGH_PERF_CAS}
+pushd ${HIGH_PERF_CAS}
+for i in 1 2 3 4 5 ; do
+  tar -xf ${CASSANDRA_TAR}
+  mv ${TAR_EXTRACTS_TO} ${TAR_EXTRACTS_TO}-${i}
+
+# Cassandra attempts to auto detect your memory 
+# settings based on your system memory. 
+# When running multiple instances on a single machine, 
+# the memory settings need to be lower:
+  sed -i '1 i MAX_HEAP_SIZE="256M"' ${TAR_EXTRACTS_TO}-${i}/conf/cassandra-env.sh
+  sed -i '1 i HEAP_NEWSIZE="100M"' ${TAR_EXTRACTS_TO}-${i}/conf/cassandra-env.sh
+
+# Replace listen_address and rpc_address with a specific IP, but do not change
+# the seed from 127.0.0.1:
+  sed -i "/listen_address\|rpc_address/s/localhost/127.0.0.${i}/g" ${TAR_EXTRACTS_TO}-${i}/conf/cassandra.yaml
+
+# Set the data, commit log, and saved_caches directory for this instance:
+  sed -i "s|/var/lib/cassandra/data|${HIGH_PERF_CAS}/data/${i}|g" ${TAR_EXTRACTS_TO}-${i}/conf/cassandra.yaml
+  sed -i "s|/var/lib/cassandra/commitlog|${HIGH_PERF_CAS}/commit/${i}|g" ${TAR_EXTRACTS_TO}-${i}/conf/cassandra.yaml
+  sed -i "s|/var/lib/cassandra/saved_caches|${HIGH_PERF_CAS}/saved_caches/${i}|g" ${TAR_EXTRACTS_TO}-${i}/conf/cassandra.yaml
+
+# Change the JMX port for each instance:
+  sed -i "s|8080|800${i}|g" ${TAR_EXTRACTS_TO}-${i}/conf/cassandra-env.sh
+done
+popd
+
+# It is important to change the mode of the script 
+# to executable and run it: e.g.
+# $ chmod a+x multiple_cassandra.sh
+# $ ./multiple_cassandra.sh
+
+
+
+
+
+
+
+
